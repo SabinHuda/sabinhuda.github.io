@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabin Huda - Cybersecurity Specialist & Software Engineer</title>
+    <style>
+        :root {
+            --primary-color: #0a192f;
+            --secondary-color: #112240;
+            --accent-color: #64ffda;
+            --text-color: #ccd6f6;
+            --text-secondary: #8892b0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--primary-color);
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            margin: 30px 0 15px;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--accent-color);
+            padding-bottom: 5px;
+        }
+        
+        h3 {
+            font-size: 1.3rem;
+            margin: 20px 0 10px;
+            color: var(--text-color);
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+        }
+        
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+        
+        a:hover {
+            opacity: 0.8;
+        }
+        
+        .container {
+            background-color: var(--secondary-color);
+            padding: 30px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .profile-intro {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        @media (min-width: 768px) {
+            .profile-intro {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+        }
+        
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent-color);
+        }
+        
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .skills-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .skill-category {
+            background-color: rgba(100, 255, 218, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 3px solid var(--accent-color);
+        }
+        
+        .skill-category h3 {
+            color: var(--accent-color);
+            margin-top: 0;
+        }
+        
+        .experience-item, .education-item, .project-item {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed rgba(100, 255, 218, 0.3);
+        }
+        
+        .experience-item:last-child, .education-item:last-child, .project-item:last-child {
+            border-bottom: none;
+        }
+        
+        .date {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+        
+        .position {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        
+        li {
+            position: relative;
+            padding-left: 15px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        
+        li::before {
+            content: "▹";
+            position: absolute;
+            left: 0;
+            color: var(--accent-color);
+        }
+        
+        .nav {
+            background-color: var(--secondary-color);
+            padding: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .nav a {
+            color: var(--text-color);
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+        
+        .nav a:hover {
+            background-color: var(--accent-color);
+            color: var(--primary-color);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="#about">About</a>
+        <a href="#skills">Skills</a>
+        <a href="#experience">Experience</a>
+        <a href="#education">Education</a>
+        <a href="#projects">Research & Projects</a>
+        <a href="#achievements">Achievements</a>
+        <a href="#contact">Contact</a>
+    </nav>
+
+    <header>
+        <h1>Sabin Huda</h1>
+        <p>Cybersecurity Specialist & Software Engineer</p>
+        <p>PhD Researcher in Trustworthy AI and Cybersecurity</p>
+    </header>
+
+    <section id="about" class="container">
+        <h2>About Me</h2>
+        <div class="profile-intro">
+            <!-- Placeholder for profile image - replace the src with your actual image path -->
+            <img src="profile-image.jpg" alt="Sabin Huda" class="profile-image" onerror="this.src='https://via.placeholder.com/200?text=SH';this.onerror='';">
+            <div>
+                <p>Security-focused software engineer with strong expertise in cybersecurity, network technologies, and secure software development. Currently completing a PhD in Trustworthy AI and Cybersecurity while serving as an Associate Lecturer at Griffith University.</p>
+                <p>Experienced in vulnerability assessment, security incident response, and implementing secure solutions for critical infrastructure. Passionate about emerging cyber technologies and committed to addressing complex security challenges through innovation and continuous learning.</p>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <span>📍</span>
+                        <span>Kuraby, Brisbane QLD</span>
+                    </div>
+                    <div class="contact-item">
+                        <span>📧</span>
+                        <a href="mailto:s.huda@griffith.edu.au">s.huda@griffith.edu.au</a>
+                    </div>
+                    <div class="contact-item">
+                        <span>👨‍💻</span>
+                        <a href="https://linkedin.com/in/sabinh007" target="_blank">LinkedIn</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="skills" class="container">
+        <h2>Technical Skills</h2>
+        <div class="skills-container">
+            <div class="skill-category">
+                <h3>Security Focus</h3>
+                <ul>
+                    <li>Information Security Management</li>
+                    <li>Vulnerability Assessment</li>
+                    <li>Secure Software Development</li>
+                    <li>Cryptography</li>
+                </ul>
+            </div>
+            <div class="skill-category">
+                <h3>Network & Cloud</h3>
+                <ul>
+                    <li>Network Security</li>
+                    <li>Cloud Security (Microsoft Azure)</li>
+                    <li>Wireless Telecommunications</li>
+                </ul>
+            </div>
+            <div class="skill-category">
+                <h3>Programming</h3>
+                <ul>
+                    <li>Python</li>
+                    <li>Java</li>
+                    <li>C++</li>
+                    <li>Security-focused Coding Practices</li>
+                </ul>
+            </div>
+            <div class="skill-category">
+                <h3>Security Tools</h3>
+                <ul>
+                    <li>Security Analysis Tools</li>
+                    <li>Threat Detection Systems</li>
+                    <li>SHAP, LIME</li>
+                </ul>
+            </div>
+            <div class="skill-category">
+                <h3>OS & Platforms</h3>
+                <ul>
+                    <li>Linux (Ubuntu)</li>
+                    <li>Windows</li>
+                    <li>Cloud Environments</li>
+                </ul>
+            </div>
+            <div class="skill-category">
+                <h3>Development Practices</h3>
+                <ul>
+                    <li>Security by Design</li>
+                    <li>Agile Methodologies</li>
+                    <li>Version Control (Git)</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section id="experience" class="container">
+        <h2>Experience</h2>
+        
+        <div class="experience-item">
+            <span class="date">03/2025 – Present</span>
+            <h3 class="position">Associate Lecturer - Level A (Part-time)</h3>
+            <p>Griffith University, School of ICT, QLD</p>
+            <ul>
+                <li>Develop and teach specialized courses on Cybersecurity and Secure Software Engineering</li>
+                <li>Conduct hands-on workshops on cloud security using Microsoft Azure, focusing on security configurations and threat mitigation</li>
+                <li>Design practical exercises demonstrating current and emerging network and cyber security technologies</li>
+                <li>Implement inclusive teaching strategies that emphasize security mindset development across diverse student populations</li>
+            </ul>
+        </div>
+
+        <div class="experience-item">
+            <span class="date">03/2024 – 02/2025</span>
+            <h3 class="position">Sessional Academic, ICT</h3>
+            <p>Griffith University, QLD</p>
+            <ul>
+                <li>Delivered specialized tutorials in Cybersecurity, Network Security, and Secure Programming practices</li>
+                <li>Conducted workshops on Microsoft Azure security tools, emphasizing cloud security configurations and best practices</li>
+                <li>Developed practical exercises demonstrating security vulnerabilities and mitigation strategies in both Windows and Linux environments</li>
+                <li>Created course materials reflecting current industry trends in information security and cybersecurity</li>
+                <li>Effectively communicated complex security concepts to diverse student groups with varying technical backgrounds</li>
+            </ul>
+        </div>
+
+        <div class="experience-item">
+            <span class="date">01/2019 – 12/2022</span>
+            <h3 class="position">ICT Systems Analyst - Security Specialist</h3>
+            <p>PERSPECTA Architects & Engineers</p>
+            <ul>
+                <li>Designed and implemented secure distributed systems with robust authentication and encryption mechanisms</li>
+                <li>Developed security solutions for critical infrastructure protection, focusing on threat detection and prevention</li>
+                <li>Conducted comprehensive vulnerability assessments and implemented mitigation strategies across network systems</li>
+                <li>Led security incident response team, reducing response time by 45% through improved protocols and automation</li>
+                <li>Collaborated with cross-functional teams to integrate security considerations throughout the development lifecycle</li>
+            </ul>
+        </div>
+
+        <div class="experience-item">
+            <span class="date">01/2010 – 12/2018</span>
+            <h3 class="position">ICT Systems Analyst</h3>
+            <p>ABAC Technologies Ltd.</p>
+            <ul>
+                <li>Designed and deployed comprehensive cybersecurity solutions, reducing security incidents by 40%</li>
+                <li>Developed secure software applications using Java and C++ with focus on secure data transmission protocols</li>
+                <li>Implemented network security monitoring systems to detect and prevent unauthorized access</li>
+                <li>Conducted regular security audits and vulnerability assessments across organizational infrastructure</li>
+                <li>Facilitated communication between technical teams and stakeholders regarding security requirements and implementations</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="education" class="container">
+        <h2>Education</h2>
+        
+        <div class="education-item">
+            <span class="date">2024 – Present</span>
+            <h3>PhD in ICT</h3>
+            <p>Griffith University, Nathan, Brisbane QLD</p>
+            <p>Research Focus: Trustworthy AI, Explainable Security Systems, Advanced Cybersecurity Frameworks</p>
+        </div>
+
+        <div class="education-item">
+            <span class="date">2019 – 2021</span>
+            <h3>MPhil in Management Information Systems</h3>
+            <p>University of Dhaka, Bangladesh</p>
+            <ul>
+                <li>CGPA: 3.80/4.00 (Dean's List, Thesis awarded)</li>
+                <li>Thesis: Investigating the Appropriateness of Healthcare Robots for Elderly People</li>
+            </ul>
+        </div>
+
+        <div class="education-item">
+            <span class="date">2013 – 2016</span>
+            <h3>MBA in Management Information Systems</h3>
+            <p>United International University (UIU), Bangladesh</p>
+            <ul>
+                <li>CGPA: 3.74/4.00 (Combined Departmental Rank 3rd Position)</li>
+                <li>Specialized in System Development, Data Analysis and Database Management</li>
+            </ul>
+        </div>
+
+        <div class="education-item">
+            <span class="date">2000 – 2003</span>
+            <h3>B.Sc. in Computer Science</h3>
+            <p>American International University Bangladesh</p>
+            <ul>
+                <li>CGPA: 3.66/4.00</li>
+                <li>Best Thesis Award: Character Recognition Using Neural Network</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="projects" class="container">
+        <h2>Research & Projects</h2>
+        
+        <div class="project-item">
+            <h3>Robust Explainable AI Framework for Cybersecurity (2024 – 2025)</h3>
+            <ul>
+                <li>Developing novel security framework for robust and explainable AI in cybersecurity applications</li>
+                <li>Implementing advanced explanation methods (SHAP, LIME) with security-focused stability regularization</li>
+                <li>Designing innovative defense mechanisms against adversarial attacks on network systems</li>
+                <li>Creating user-friendly security explanations to improve security awareness and response</li>
+                <li>Planned AAAI Conference 2025 submission focusing on security applications</li>
+            </ul>
+        </div>
+
+        <div class="project-item">
+            <h3>Security-Enhanced Synthetic Banking Data Generation (2024 – 2025)</h3>
+            <ul>
+                <li>Developing secure multi-agent system for generating synthetic Australian banking data with privacy guarantees</li>
+                <li>Implementing sophisticated fraud and money laundering pattern detection with high security standards</li>
+                <li>Achieving 0.80 precision and 0.97 recall in security threat detection within financial transactions</li>
+                <li>Designing secure data handling protocols compliant with Australian financial regulations</li>
+                <li>Paper under submission to Expert Systems with Applications</li>
+            </ul>
+        </div>
+
+        <div class="project-item">
+            <h3>Advanced Network Threat Detection System (2024)</h3>
+            <ul>
+                <li>Conducted comprehensive vulnerability analysis of AI-based network anomaly detection systems</li>
+                <li>Identified critical security vulnerabilities in explanation techniques and model architectures</li>
+                <li>Developed enhanced security monitoring solutions using Python and scikit-learn</li>
+                <li>Created robust defense mechanisms against emerging network threats and zero-day exploits</li>
+                <li>Paper in peer review in IEEE Transactions on Information Forensics and Security</li>
+            </ul>
+        </div>
+    </section>
+
+    <section id="achievements" class="container">
+        <h2>Professional Development & Achievements</h2>
+        
+        <div class="education-item">
+            <span class="date">2024 – 2025</span>
+            <p>Young Science Ambassador (YSA) Award, Wonder of Science (WoS), University of Queensland</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2024</span>
+            <p>Active Member, Australian Computer Society (ACS)</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2024</span>
+            <p>Certified Emerging Industry Leader, Griffith University QLD</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2024</span>
+            <p>Queensland Blue Card Holder (Working with Children Check)</p>
+        </div>
+
+        <h3>Scholarships & Academic Recognition</h3>
+        
+        <div class="education-item">
+            <span class="date">2024</span>
+            <p>Griffith International Postgraduate Research Scholarship, Griffith University QLD</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2024</span>
+            <p>Griffith Postgraduate Research Scholarship, Griffith University QLD</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2021</span>
+            <p>MPhil Best Thesis Award & Scholarship, University of Dhaka, Bangladesh</p>
+        </div>
+        
+        <div class="education-item">
+            <span class="date">2013</span>
+            <p>Tuition Waiver Scholarship, United International University, Bangladesh</p>
+        </div>
+    </section>
+
+    <section id="contact" class="container">
+        <h2>Contact</h2>
+        <p>I'm always open to discussing cybersecurity research, collaborative opportunities, or potential projects.</p>
+        
+        <div class="contact-info" style="justify-content: flex-start;">
+            <div class="contact-item">
+                <span>📧</span>
+                <a href="mailto:s.huda@griffith.edu.au">s.huda@griffith.edu.au</a>
+            </div>
+            <div class="contact-item">
+                <span>👨‍💻</span>
+                <a href="https://linkedin.com/in/sabinh007" target="_blank">LinkedIn Profile</a>
+            </div>
+        </div>
+        
+        <h3>References</h3>
+        <p>Prof Abdul Sattar<br>
+        School of Information and Communication Technology, Griffith University QLD<br>
+        E: <a href="mailto:a.sattar@griffith.edu.au">a.sattar@griffith.edu.au</a></p>
+        
+        <p>Prof Ernest Foo<br>
+        School of Information and Communication Technology, Griffith University QLD<br>
+        E: <a href="mailto:e.foo@griffith.edu.au">e.foo@griffith.edu.au</a></p>
+    </section>
+
+    <footer>
+        <p>© 2025 Sabin Huda. All rights reserved.</p>
+    </footer>
+</body>
+</html>
