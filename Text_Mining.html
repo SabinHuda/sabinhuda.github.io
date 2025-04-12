@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sabin Huda - Cybersecurity Specialist & Software Engineer</title>
+  <style>
+    /* Add your CSS styles here */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0;
+    }
+    nav ul {
+      list-style-type: none;
+      padding: 0;
+      display: flex;
+    }
+    nav li {
+      margin-right: 20px;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+    }
+    main {
+      padding: 20px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    footer {
+      background-color: #333;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sabin Huda</h1>
+    <nav>
+      <ul>
+        <li><a href="#">Home</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <h2>Python Code Showcase</h2>
+
+    <pre>
+      <code>
+        import re
+        import pandas as pd
+        import pytesseract
+        from pdf2image import convert_from_path
+        import os
+        from PIL import Image
+        import numpy as np
+        
+        def extract_text_from_pdf_using_tesseract(pdf_path):
+            """Extract text from PDF using Tesseract OCR."""
+            try:
+                print("Converting PDF to images...")
+                images = convert_from_path(pdf_path)
+                
+                print("Performing OCR on pages...")
+                text = []
+                for i, image in enumerate(images):
+                    # Improve image quality for OCR
+                    img_array = np.array(image)
+                    
+                    # Increase contrast and brightness
+                    img_contrast = np.clip((img_array - img_array.mean()) * 1.8 + img_array.mean(), 0, 255).astype(np.uint8)
+                    
+                    # Convert back to PIL Image
+                    enhanced_image = Image.fromarray(img_contrast)
+                    
+                    # OCR Configuration with improved settings
+                    custom_config = r'--oem 3 --psm 6 -c preserve_interword_spaces=1'
+                    
+                    # Perform OCR
+                    page_text = pytesseract.image_to_string(enhanced_image, config=custom_config)
+                    text.append(page_text)
+                    print(f"Processed page {i+1}")
+                    
+                return '\n'.join(text)
+            except Exception as e:
+                raise Exception(f"Error processing PDF: {str(e)}")
+        
+        def clean_description(desc):
+            """Clean item descriptions."""
+            # Remove unwanted patterns
+            desc = re.sub(r'\s*\d+[/\-]\s*$', '', desc)
+            desc = re.sub(r'\s*[£$]\d+.*$', '', desc)
+            desc = re.sub(r'\s*\([^)]*\d+[^)]*\)\s*$', '', desc)
+            desc = re.sub(r'\s*(?:First|Second)\s*Day\s*$', '', desc)
+            desc = re.sub(r'\s*Page\s+\d+\s*', '', desc)
+            desc = re.sub(r'[|]', '', desc)
+            desc = re.sub(r'_{2,}', ' ', desc)
+            
+            # Remove special characters and excessive spaces
+            desc = re.sub(r'[^\w\s,\-\(\)\."]', ' ', desc)
+            desc = re.sub(r'\s+', ' ', desc)
+            return desc.strip()
+        
+        def extract_lots(text):
+            """Extract lot numbers and descriptions."""
+            lots = []
+            
+            # Improved lot pattern
+            lot_pattern = r'(?m)^\s*(\d{1,3})[\.\s]+([^\n]+)'
+            
+            # Process line by line
+            lines = text.split('\n')
+            current_lot = None
+            current_desc = []
+            
+            for line in lines:
+                match = re.match(lot_pattern, line)
+                
+                if match:
+                    # Save previous lot
+                    if current_lot and current_desc:
+                        desc = ' '.join(current_desc)
+                        if len(desc) > 5 and not desc.isdigit():
+                            lots.append([current_lot, clean_description(desc)])
+                    
+                    # Start new lot
+                    lot_num = int(match.group(1))
+                    desc = match.group(2).strip()
+                    
+                    if 1 <= lot_num <= 999:
+                        current_lot = lot_num
+                        current_desc = [desc]
+                elif current_desc and line.strip():
+                    # Continue previous description
+                    current_desc.append(line.strip())
+            
+            # Add last lot
+            if current_lot and current_desc:
+                desc = ' '.join(current_desc)
+                if len(desc) > 5 and not desc.isdigit():
+                    lots.append([current_lot, clean_description(desc)])
+            
+            return lots
+        
+        def main():
+            pdf_path = r'C:\Users\SabinHuda\Downloads\b3163915x.pdf'
+            
+            try:
+                # Extract text
+                text_content = extract_text_from_pdf_using_tesseract(pdf_path)
+                
+                # Process lots
+                print("\nExtracting lots...")
+                lots = extract_lots(text_content)
+                
+                # Create DataFrame
+                df = pd.DataFrame(lots, columns=['Lot Number', 'Item Description'])
+                
+                # Clean and sort
+                df = df.drop_duplicates(subset=['Lot Number'], keep='first')
+                df = df.sort_values('Lot Number')
+                
+                # Additional filtering
+                df = df[df['Item Description'].str.len() > 5]
+                df = df[~df['Item Description'].str.match(r'^\d+$')]
+                
+                # Save to single CSV
+                output_path = r'C:\Users\SabinHuda\Downloads\auction_lots.csv'
+                df.to_csv(output_path, index=False, encoding='utf-8-sig')
+                
+                print("\nResults:")
+                print(f"Total lots: {len(df)}")
+                if not df.empty:
+                    print(f"Lot range: {df['Lot Number'].min()} to {df['Lot Number'].max()}")
+                    print("\nSample entries:")
+                    print(df.head().to_string())
+                
+                print(f"\nSaved to: {output_path}")
+                
+            except Exception as e:
+                print(f"An error occurred: {str(e)}")
+        
+        if __name__ == "__main__":
+            main()
+        
+      </code>
+    </pre>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Sabin Huda. All rights reserved.</p>
+  </footer>
+</body>
+</html>
