@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sabin Huda - Cybersecurity Specialist & Software Engineer</title>
+  <style>
+    /* Add your CSS styles here */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0;
+    }
+    nav ul {
+      list-style-type: none;
+      padding: 0;
+      display: flex;
+    }
+    nav li {
+      margin-right: 20px;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+    }
+    main {
+      padding: 20px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    footer {
+      background-color: #333;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sabin Huda</h1>
+    <nav>
+      <ul>
+        <li><a href="#">Home</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <h2>C Code Showcase</h2>
+
+    <pre>
+      <code>
+        client.c
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <stdint.h>
+            #include <stdbool.h>
+            #include <string.h>
+            #include <errno.h>
+            #include <limits.h>
+            #include <pthread.h>
+            #include <semaphore.h>
+            #include <unistd.h>
+            #include "shared.h"
+            #include "clock.h"
+            
+            #define INPUT_BUFFER_SIZE 128
+            #define PROGRESS_WAIT_TIME_MS 500
+            
+            struct Query {
+                uint64_t number;
+                time_t started_time;
+            } typedef Query;
+            
+            void query_loop();
+            bool prompt_user(uint64_t *);
+            void send_query(uint64_t);
+            void start_info_thread();
+            void *info_thread(void *);
+            void start_progress_thread();
+            void *progress_thread(void *);
+            void cleanup();
+            void print_progress();
+            
+            Query queries[SLOT_COUNT];
+            
+            int main() {
+                update_time();
+                get_shared_memory(false);
+                attach_to_shared_memory();
+                init_semaphores(false);
+                start_info_thread();
+                start_progress_thread();
+                query_loop();
+                cleanup();
+                return 0;
+            }
+            
+            void cleanup() {
+                free_shared_memory();
+                close_semaphores();
+            }
+            
+            void print_progress() {
+                bool found = false;
+                printf("\rProgress: ");
+                for (int i = 0; i < SLOT_COUNT; ++i) {
+                    if (!serverflag(i, SF_FREE) && 
+                        !serverflag(i, SF_QUERY_COMPLETE) && 
+                        !serverflag(i, SF_FACTOR_SENT)) {
+                        found = true;
+                        int progress = (int)(shmptr->progress[i] * 100);
+                        printf("Q%d:%d%% [", i + 1, progress);
+                        for (int j = 0; j < progress/10; j++) {
+                            printf("#");
+                        }
+                        for (int j = progress/10; j < 10; j++) {
+                            printf(" ");
+                        }
+                        printf("] | ");
+                    }
+                }
+                if (found) {
+                    printf("\r");
+                    fflush(stdout);
+                }
+            }
+            
+            void start_info_thread() {
+                pthread_t t;
+                pthread_create(&t, NULL, info_thread, NULL);
+                pthread_detach(t);
+            }
+            
+            void *info_thread(void *arg) {
+                while (1) {
+                    sem_wait(sem_slot_event);
+                    update_time();
+                    for (int i = 0; i < SLOT_COUNT; ++i) {
+                        if (serverflag(i, SF_FACTOR_SENT)) {
+                            printf("\nSlot %d: %lu", i + 1, shmptr->slot[i]);
+                        } else if (serverflag(i, SF_QUERY_COMPLETE)) {
+                            char friendly_interval_str[1024];
+                            friendly_time_interval(queries[i].started_time, friendly_interval_str, sizeof(friendly_interval_str));
+                            printf("\nQ%u factorisation complete. Took %s.\n", i + 1, friendly_interval_str);
+                        }
+                    }
+                    sem_post(sem_slot_event_ack);
+                }
+                return NULL;
+            }
+            
+            void start_progress_thread() {
+                pthread_t t;
+                pthread_create(&t, NULL, progress_thread, NULL);
+                pthread_detach(t);
+            }
+            
+            void *progress_thread(void *arg) {
+                while (1) {
+                    long elapsed = time_since_ms();
+                    if (!shmptr->testmode && elapsed >= PROGRESS_WAIT_TIME_MS) {
+                        print_progress();
+                        update_time();
+                    } else {
+                        usleep((PROGRESS_WAIT_TIME_MS - elapsed) * 1000);
+                    }
+                }
+                return NULL;
+            }
+            
+            void query_loop() {
+                while (1) {
+                    uint64_t num;
+                    if (prompt_user(&num)) {
+                        send_query(num);
+                    } else {
+                        printf("\nGoodbye.\n");
+                        break;
+                    }
+                }
+            }
+            
+            void send_query(uint64_t value) {
+                set_clientslot(value);
+                sem_post(sem_client);
+                sem_wait(sem_server);
+                int32_t response = shmptr->clientslot;
+                
+                if (response == CS_SERVER_BUSY) {
+                    printf("Server is busy.\n");
+                } else if (response == CS_SERVER_TESTING) {
+                    printf("Server is currently testing. Try again later.\n");
+                } else if (response == CS_SERVER_CANT_TEST) {
+                    printf("Cannot enter test mode as there are outstanding queries in progress.\n");
+                } else if (response == CS_SERVER_TESTING_STARTED) {
+                    printf("Test mode started.\n");
+                    time(&queries[0].started_time);
+                    queries[1].started_time = queries[0].started_time;
+                    queries[2].started_time = queries[0].started_time;
+                } else if (response >= 0) {
+                    queries[response].number = value;
+                    time(&queries[response].started_time);
+                    printf("Server allocated query to slot %d\n", response + 1);
+                }
+                update_time();
+            }
+            
+            bool prompt_user(uint64_t *result) {
+                char buf[INPUT_BUFFER_SIZE];
+                while (1) {
+                    printf("Enter number: ");
+                    if (fgets(buf, INPUT_BUFFER_SIZE, stdin) == NULL) {
+                        continue;
+                    }
+                    buf[strcspn(buf, "\n")] = '\0';
+                    if (strncmp(buf, "q", 1) == 0) {
+                        return false;
+                    }
+                    char *endptr;
+                    unsigned long long converted = strtoull(buf, &endptr, 10);
+                    if (converted >= 0 && converted <= UINT64_MAX && endptr != buf && *endptr == '\0') {
+                        *result = (uint64_t)converted;
+                        return true;
+                    }
+                    printf("Invalid input. Please enter a positive number or 'q' to quit.\n");
+                }
+            }
+        
+        server.c
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <stdbool.h>
+            #include <pthread.h>
+            #include <signal.h>
+            #include <string.h>
+            #include <unistd.h>
+            #include <semaphore.h>
+            #include <stdatomic.h>
+            #include <sys/types.h>
+            #include "shared.h"
+            
+            #define NUMBER_OF_TEST_SETS 3
+            #define NUMBER_OF_TEST_THREADS_PER_SET 10
+            #define NUMBER_BITS 64
+            #define PROGRESS_BAR_WIDTH 50
+            
+            // Structure Definitions
+            typedef struct PrimeTracker {
+                atomic_flag *found_primes;
+                size_t size;
+            } PrimeTracker;
+            
+            typedef struct ThreadArgs {
+                uint64_t number;
+                uint8_t slot_index;
+                double *sub_progress;
+                uint32_t sub_index;
+                PrimeTracker *prime_tracker;
+            } ThreadArgs;
+            
+            typedef struct CreateThreadsArgs {
+                uint64_t number;
+                uint8_t found_index;
+            } CreateThreadsArgs;
+            
+            typedef struct TestThreadArgs {
+                uint8_t slot_index;
+                uint8_t start_number;
+            } TestThreadArgs;
+            
+            // Global Variables
+            pthread_mutex_t slot_mutex[SLOT_COUNT] = { PTHREAD_MUTEX_INITIALIZER };
+            pthread_mutex_t progress_mutex[SLOT_COUNT] = { PTHREAD_MUTEX_INITIALIZER };
+            pthread_mutex_t jobs_remaining_mutex[SLOT_COUNT] = { PTHREAD_MUTEX_INITIALIZER };
+            uint8_t jobs_remaining[SLOT_COUNT] = {0};
+            uint8_t outstanding_requests = 0;
+            pthread_mutex_t outstanding_mutex = PTHREAD_MUTEX_INITIALIZER;
+            
+            // Forward declarations
+            void fatal_error(const char *msg);
+            void notify_client(uint8_t slot_index, int8_t status, uint64_t value);
+            void free_slot(uint8_t slot_index);
+            
+            // Signal handling function
+            void signal_handler(int signum) {
+                printf("\nReceived signal %d, cleaning up...\n", signum);
+                free_shared_memory();
+                close_semaphores();
+                exit(0);
+            }
+            
+            // Setup signal handlers
+            void setup_signal_handlers(void) {
+                signal(SIGINT, signal_handler);
+                signal(SIGTERM, signal_handler);
+            }
+            
+            // Setup shared memory
+            void setup_shared_memory(void) {
+                if (get_shared_memory(true) == -1) {
+                    fatal_error("Unable to get shared memory");
+                }
+                if (attach_to_shared_memory() == -1) {
+                    fatal_error("Unable to attach to shared memory");
+                }
+                if (init_shared_memory() == -1) {
+                    fatal_error("Unable to initialize shared memory");
+                }
+                if (init_semaphores(true) == -1) {
+                    fatal_error("Unable to initialize semaphores");
+                }
+            }
+            
+            // Utility Functions
+            void try(int result, const char *error_message) {
+                if (result != 0) {
+                    perror(error_message);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            
+            void fatal_error(const char *msg) {
+                perror(msg);
+                exit(EXIT_FAILURE);
+            }
+            
+            void clear_progress_bar(uint8_t slot_index) {
+                printf("\r");
+                for (int i = 0; i < PROGRESS_BAR_WIDTH + 20; i++) {
+                    printf(" ");
+                }
+                printf("\r");
+                fflush(stdout);
+            }
+            
+            void update_progress(uint8_t slot_index, double *sub_progress, uint32_t sub_index) {
+                try(pthread_mutex_lock(&progress_mutex[slot_index]), "Unable to lock progress_mutex");
+                
+                double total = 0;
+                for (int i = 0; i < NUMBER_BITS; ++i) {
+                    total += sub_progress[i];
+                }
+                double overall_progress = total / NUMBER_BITS;
+                
+                shmptr->progress[slot_index] = overall_progress;
+                
+                int position = (int)(overall_progress * PROGRESS_BAR_WIDTH / 100.0);
+                printf("\rSlot %d [", slot_index + 1);
+                for (int i = 0; i < PROGRESS_BAR_WIDTH; i++) {
+                    if (i < position) printf("=");
+                    else if (i == position) printf(">");
+                    else printf(" ");
+                }
+                printf("] %.1f%%", overall_progress);
+                fflush(stdout);
+                
+                try(pthread_mutex_unlock(&progress_mutex[slot_index]), "Unable to unlock progress_mutex");
+            }
+            
+            void update_counters(uint8_t slot_index) {
+                try(pthread_mutex_lock(&jobs_remaining_mutex[slot_index]), "Unable to lock jobs_remaining_mutex");
+                jobs_remaining[slot_index]--;
+                try(pthread_mutex_unlock(&jobs_remaining_mutex[slot_index]), "Unable to unlock jobs_remaining_mutex");
+                
+                if (jobs_remaining[slot_index] == 0) {
+                    try(pthread_mutex_lock(&outstanding_mutex), "Unable to lock outstanding mutex");
+                    outstanding_requests--;
+                    try(pthread_mutex_unlock(&outstanding_mutex), "Unable to unlock outstanding mutex");
+                }
+            }
+            
+            // Notify client function
+            void notify_client(uint8_t slot_index, int8_t status, uint64_t value) {
+                try(pthread_mutex_lock(&slot_mutex[slot_index]), "Unable to lock slot mutex");
+                
+                set_serverflag(slot_index, status);
+                if (status == SF_FACTOR_SENT) {
+                    shmptr->slot[slot_index] = value;
+                }
+                
+                try(sem_post(sem_slot_event), "Unable to post slot event");
+                try(sem_wait(sem_slot_event_ack), "Unable to wait for slot event ack");
+                
+                try(pthread_mutex_unlock(&slot_mutex[slot_index]), "Unable to unlock slot mutex");
+            }
+            
+            // Free slot function
+            void free_slot(uint8_t slot_index) {
+                try(pthread_mutex_lock(&slot_mutex[slot_index]), "Unable to lock slot mutex");
+                shmptr->slot[slot_index] = SLOT_EMPTY;
+                set_serverflag(slot_index, SF_FREE);
+                try(pthread_mutex_unlock(&slot_mutex[slot_index]), "Unable to unlock slot mutex");
+            }
+            
+            // Prime Tracker Functions
+            PrimeTracker* create_prime_tracker(uint64_t max_number) {
+                PrimeTracker *tracker = malloc(sizeof(PrimeTracker));
+                if (!tracker) return NULL;
+                
+                tracker->size = max_number + 1;
+                tracker->found_primes = calloc(tracker->size, sizeof(atomic_flag));
+                if (!tracker->found_primes) {
+                    free(tracker);
+                    return NULL;
+                }
+                return tracker;
+            }
+            
+            void free_prime_tracker(PrimeTracker *tracker) {
+                if (tracker) {
+                    free(tracker->found_primes);
+                    free(tracker);
+                }
+            }
+            
+            // Core Factorization Functions
+            uint64_t rotate_right(uint64_t num, uint32_t rotation) {
+                return (num >> rotation) | (num << (64 - rotation));
+            }
+            
+            void *factorise(void *arg) {
+                ThreadArgs *args = (ThreadArgs *)arg;
+                uint64_t rotated_num = rotate_right(args->number, args->sub_index);
+                double last_progress = 0;
+                
+                for (uint64_t i = 2; i <= rotated_num; i++) {
+                    if (rotated_num % i == 0) {
+                        bool isPrime = true;
+                        for (uint64_t j = 2; j <= i / 2; j++) {
+                            if (i % j == 0) {
+                                isPrime = false;
+                                break;
+                            }
+                        }
+                        if (isPrime && !atomic_flag_test_and_set(&args->prime_tracker->found_primes[i])) {
+                            notify_client(args->slot_index, SF_FACTOR_SENT, i);
+                            usleep(10000);
+                        }
+                    }
+            
+                    double current_progress = (double)i / rotated_num * 100;
+                    if (current_progress - last_progress >= 0.5) {
+                        last_progress = current_progress;
+                        args->sub_progress[args->sub_index] = current_progress;
+                        update_progress(args->slot_index, args->sub_progress, args->sub_index);
+                    }
+                }
+                
+                args->sub_progress[args->sub_index] = 100;
+                update_progress(args->slot_index, args->sub_progress, args->sub_index);
+                update_counters(args->slot_index);
+                return NULL;
+            }
+            
+            void *query_thread(void *arg) {
+                CreateThreadsArgs *args = (CreateThreadsArgs *)arg;
+                uint64_t number = args->number;
+                uint8_t slot_index = args->found_index;
+                
+                shmptr->progress[slot_index] = 0;
+                printf("\nStarting factorization for %lu in slot %d\n", number, slot_index + 1);
+                
+                double *thread_progress = calloc(NUMBER_BITS, sizeof(double));
+                if (!thread_progress) {
+                    fatal_error("Memory allocation failed");
+                }
+                
+                PrimeTracker *tracker = create_prime_tracker(number);
+                if (!tracker) {
+                    free(thread_progress);
+                    fatal_error("Memory allocation failed for prime tracker");
+                }
+                
+                jobs_remaining[slot_index] = NUMBER_BITS;
+                
+                pthread_t *threads = malloc(NUMBER_BITS * sizeof(pthread_t));
+                ThreadArgs *thread_args = malloc(NUMBER_BITS * sizeof(ThreadArgs));
+                
+                if (!threads || !thread_args) {
+                    free(thread_progress);
+                    free_prime_tracker(tracker);
+                    free(threads);
+                    free(thread_args);
+                    fatal_error("Memory allocation failed");
+                }
+                
+                for (int i = 0; i < NUMBER_BITS; ++i) {
+                    thread_args[i].number = number;
+                    thread_args[i].slot_index = slot_index;
+                    thread_args[i].sub_progress = thread_progress;
+                    thread_args[i].sub_index = i;
+                    thread_args[i].prime_tracker = tracker;
+                    
+                    try(pthread_create(&threads[i], NULL, factorise, &thread_args[i]),
+                        "Unable to create factorise thread");
+                }
+                
+                for (int i = 0; i < NUMBER_BITS; ++i) {
+                    pthread_join(threads[i], NULL);
+                }
+                
+                printf("\nFactorization complete for slot %d\n", slot_index + 1);
+                
+                notify_client(slot_index, SF_QUERY_COMPLETE, 0);
+                free_slot(slot_index);
+                
+                free(thread_progress);
+                free_prime_tracker(tracker);
+                free(threads);
+                free(thread_args);
+                free(args);
+                
+                return NULL;
+            }
+            
+            // Test Mode Functions
+            void *test_thread(void *arg) {
+                TestThreadArgs *args = (TestThreadArgs *)arg;
+                uint8_t slot_index = args->slot_index;
+                uint8_t start_number = args->start_number;
+                double progress = 0;
+                
+                for (int i = 0; i < 10; i++) {
+                    usleep((10 + rand() % 91) * 1000);
+                    progress = (i + 1) * 10.0;
+                    uint64_t test_prime = start_number * 10 + i;
+                    notify_client(slot_index, SF_FACTOR_SENT, test_prime);
+                    
+                    double sub_progress[NUMBER_BITS] = {0};
+                    sub_progress[0] = progress;
+                    update_progress(slot_index, sub_progress, 0);
+                }
+                
+                update_counters(slot_index);
+                return NULL;
+            }
+            
+            void *test_set_thread(void *arg) {
+                uint8_t slot_index = *(uint8_t *)arg;
+                TestThreadArgs thread_args[NUMBER_OF_TEST_THREADS_PER_SET];
+                pthread_t threads[NUMBER_OF_TEST_THREADS_PER_SET];
+                
+                jobs_remaining[slot_index] = NUMBER_OF_TEST_THREADS_PER_SET;
+                try(pthread_mutex_lock(&outstanding_mutex), "Unable to lock outstanding mutex");
+                outstanding_requests++;
+                try(pthread_mutex_unlock(&outstanding_mutex), "Unable to unlock outstanding mutex");
+                
+                double *test_progress = calloc(NUMBER_OF_TEST_THREADS_PER_SET, sizeof(double));
+                if (!test_progress) {
+                    fatal_error("Memory allocation failed for test progress");
+                }
+                
+                printf("\nStarting test set %d\n", slot_index + 1);
+                
+                for (int i = 0; i < NUMBER_OF_TEST_THREADS_PER_SET; ++i) {
+                    thread_args[i].slot_index = slot_index;
+                    thread_args[i].start_number = i * 10;
+                    try(pthread_create(&threads[i], NULL, test_thread, &thread_args[i]), 
+                        "Unable to create test thread");
+                }
+                
+                for (int i = 0; i < NUMBER_OF_TEST_THREADS_PER_SET; ++i) {
+                    pthread_join(threads[i], NULL);
+                }
+                
+                printf("\nTest set %d complete\n", slot_index + 1);
+                free(test_progress);
+                return NULL;
+            }
+            
+            // Process messages function
+            void process_messages(void) {
+                try(sem_wait(sem_server), "Unable to wait for server semaphore");
+                
+                int64_t number = clientslot();
+                if (number > 0) {
+                    uint8_t found_index = SLOT_COUNT;
+                    
+                    for (uint8_t i = 0; i < SLOT_COUNT; ++i) {
+                        if (serverflag(i, SF_FREE)) {
+                            found_index = i;
+                            break;
+                        }
+                    }
+                    
+                    if (found_index < SLOT_COUNT) {
+                        set_serverflag(found_index, SF_QUERY_IN_PROGRESS);
+                        
+                        CreateThreadsArgs *args = malloc(sizeof(CreateThreadsArgs));
+                        if (!args) {
+                            fatal_error("Unable to allocate memory for thread args");
+                        }
+                        
+                        args->number = number;
+                        args->found_index = found_index;
+                        
+                        pthread_t thread;
+                        try(pthread_create(&thread, NULL, query_thread, args),
+                            "Unable to create query thread");
+                        pthread_detach(thread);
+                    }
+                }
+                
+                try(sem_post(sem_client), "Unable to post client semaphore");
+            }
+            
+            // Main Function
+            int main(void) {
+                setup_signal_handlers();
+                setup_shared_memory();
+                
+                while (true) {
+                    process_messages();
+                }
+                
+                return 0;
+            }
+
+        clock.c
+            #include <stdio.h>
+            #include "clock.h"
+            
+            struct timespec last_time;
+            pthread_mutex_t time_mutex = PTHREAD_MUTEX_INITIALIZER;
+            
+            void friendly_time_interval(time_t past_time, char *buffer, size_t buffer_size)
+            {
+              time_t current_time;
+              time(&current_time);
+              double seconds_diff = difftime(current_time, past_time);
+              int days = seconds_diff / 86400;
+              seconds_diff -= days * 86400;
+              int hours = seconds_diff / 3600;
+              seconds_diff -= hours * 3600;
+              int minutes = seconds_diff / 60;
+              int seconds = (int)seconds_diff % 60;
+            
+              // Create the formatted string for the time interval
+              if (days > 0)
+              {
+                snprintf(buffer, buffer_size, "%d day%s, %d hour%s, %d minute%s, %d second%s",
+                         days, (days == 1) ? "" : "s",
+                         hours, (hours == 1) ? "" : "s",
+                         minutes, (minutes == 1) ? "" : "s",
+                         seconds, (seconds == 1) ? "" : "s");
+              }
+              else if (hours > 0)
+              {
+                snprintf(buffer, buffer_size, "%d hour%s, %d minute%s, %d second%s",
+                         hours, (hours == 1) ? "" : "s",
+                         minutes, (minutes == 1) ? "" : "s",
+                         seconds, (seconds == 1) ? "" : "s");
+              }
+              else if (minutes > 0)
+              {
+                snprintf(buffer, buffer_size, "%d minute%s, %d second%s",
+                         minutes, (minutes == 1) ? "" : "s",
+                         seconds, (seconds == 1) ? "" : "s");
+              }
+              else
+              {
+                snprintf(buffer, buffer_size, "%d second%s",
+                         seconds, (seconds == 1) ? "" : "s");
+              }
+            }
+            
+            long current_time_ms()
+            {
+              struct timespec current_time;
+              clock_gettime(CLOCK_MONOTONIC, &current_time);
+              return current_time.tv_sec * 1000 + current_time.tv_nsec / 1000000;
+            }
+            
+            void update_time()
+            {
+              pthread_mutex_lock(&time_mutex);
+              clock_gettime(CLOCK_MONOTONIC, &last_time);
+              pthread_mutex_unlock(&time_mutex);
+            }
+            
+            long time_since_ms()
+            {
+              long current_ms = current_time_ms();
+              pthread_mutex_lock(&time_mutex);
+              long last_ms = last_time.tv_sec * 1000 + last_time.tv_nsec / 1000000;
+              pthread_mutex_unlock(&time_mutex);
+              return current_ms - last_ms;
+            }
+
+        clock.h
+            #ifndef CLOCK_H_
+            #define CLOCK_H_
+            
+            #include <pthread.h>
+            #include <time.h>
+            
+            extern struct timespec last_time;
+            extern pthread_mutex_t time_mutex;
+            
+            void update_time();
+            long current_time_ms();
+            long time_since_ms();
+            void friendly_time_interval(time_t past_time, char *buffer, size_t buffer_size);
+            
+            #endif, #include <stdlib.h>
+
+        shared.c
+            #include <stdio.h>
+            #include <sys/shm.h>
+            #include <errno.h>
+            #include <sys/ipc.h>
+            #include <memory.h>
+            #include <fcntl.h>
+            #include "shared.h"
+            
+            // Initialize global variables
+            int shmid = 0;
+            bool created = false;
+            struct Memory* shmptr = NULL;
+            sem_t *sem_server = NULL;
+            sem_t *sem_client = NULL;
+            sem_t *sem_slot_event = NULL;
+            sem_t *sem_slot_event_ack = NULL;
+            
+            // Internal helper functions
+            static void fatal_shm_error(const char *msg) {
+                perror(msg);
+                exit(1);
+            }
+            
+            static sem_t* try_semp(sem_t *result, const char *msg) {
+                if (result == SEM_FAILED) {
+                    fatal_shm_error(msg);
+                }
+                return result;
+            }
+            
+            void close_semaphores(void) {
+                if (sem_server) sem_close(sem_server);
+                if (sem_client) sem_close(sem_client);
+                if (sem_slot_event) sem_close(sem_slot_event);
+                if (sem_slot_event_ack) sem_close(sem_slot_event_ack);
+            }
+            
+            int init_semaphores(bool create) {
+                if (create) {
+                    sem_unlink(SEM_SERVER_FNAME);
+                    sem_unlink(SEM_CLIENT_FNAME);
+                    sem_unlink(SEM_SLOT_EVENT_FNAME);
+                    sem_unlink(SEM_SLOT_EVENT_ACK_FNAME);
+                    
+                    sem_server = try_semp(sem_open(SEM_SERVER_FNAME, O_CREAT, 0666, 0), 
+                        "Unable to open semaphore sem_server");
+                    sem_client = try_semp(sem_open(SEM_CLIENT_FNAME, O_CREAT, 0666, 0),
+                        "Unable to open semaphore sem_client");
+                    sem_slot_event = try_semp(sem_open(SEM_SLOT_EVENT_FNAME, O_CREAT, 0666, 0),
+                        "Unable to open semaphore sem_slot_event");
+                    sem_slot_event_ack = try_semp(sem_open(SEM_SLOT_EVENT_ACK_FNAME, O_CREAT, 0666, 0),
+                        "Unable to open semaphore sem_slot_event_ack");
+                } else {
+                    sem_server = try_semp(sem_open(SEM_SERVER_FNAME, 0),
+                        "Unable to open semaphore sem_server");
+                    sem_client = try_semp(sem_open(SEM_CLIENT_FNAME, 0),
+                        "Unable to open semaphore sem_client");
+                    sem_slot_event = try_semp(sem_open(SEM_SLOT_EVENT_FNAME, 0),
+                        "Unable to open semaphore sem_slot_event");
+                    sem_slot_event_ack = try_semp(sem_open(SEM_SLOT_EVENT_ACK_FNAME, 0),
+                        "Unable to open semaphore sem_slot_event_ack");
+                }
+                return 0;
+            }
+            
+            int64_t clientslot(void) {
+                return shmptr->clientslot;
+            }
+            
+            void set_clientslot(int64_t value) {
+                shmptr->clientslot = value;
+            }
+            
+            void set_serverflag(uint8_t slot_index, int8_t status) {
+                shmptr->serverflag[slot_index] = status;
+            }
+            
+            bool serverflag(uint8_t slot_index, int8_t status) {
+                return shmptr->serverflag[slot_index] == status;
+            }
+            
+            void detach_from_shared_memory(void) {
+                if (shmptr != NULL && shmptr != (void*)-1) {
+                    if (shmdt(shmptr) == -1) {
+                        perror("Error detaching from shared memory");
+                    }
+                    shmptr = NULL;
+                }
+            }
+            
+            void free_shared_memory(void) {
+                if (shmid > 0) {
+                    if (created) {
+                        if (shmctl(shmid, IPC_RMID, NULL) == -1) {
+                            perror("Failed to mark shared memory segment for destruction");
+                        }
+                    }
+                    detach_from_shared_memory();
+                    shmid = 0;
+                }
+            }
+            
+            int init_shared_memory(void) {
+                if (shmptr == NULL) {
+                    return -1;
+                }
+                
+                // Initialize memory using direct assignment
+                for (int i = 0; i < SLOT_COUNT; i++) {
+                    shmptr->slot[i] = SLOT_EMPTY;
+                    shmptr->serverflag[i] = SF_FREE;
+                    shmptr->progress[i] = 0.0;
+                }
+                
+                shmptr->clientslot = 0;
+                shmptr->testmode = false;
+                
+                return 0;
+            }
+            
+            int attach_to_shared_memory(void) {
+                if (shmid <= 0) {
+                    return -1;
+                }
+                
+                shmptr = (struct Memory*)shmat(shmid, NULL, 0);
+                if (shmptr == (void*)-1) {
+                    shmptr = NULL;
+                    return -1;
+                }
+                return 0;
+            }
+            
+            int get_shared_memory(bool create) {
+                // Create the file if it doesn't exist (when server is creating shared memory)
+                if (create) {
+                    FILE *fp = fopen(SHARED_FILE_PATH, "w");
+                    if (fp != NULL) {
+                        fclose(fp);
+                    } else {
+                        perror("Could not create shared file");
+                        return -1;
+                    }
+                }
+                
+                key_t key = ftok(SHARED_FILE_PATH, 'R');
+                if (key == -1) {
+                    return -1;
+                }
+                
+                if (create) {
+                    shmid = shmget(key, sizeof(struct Memory), IPC_CREAT | 0666);
+                    created = true;
+                } else {
+                    shmid = shmget(key, sizeof(struct Memory), 0666);
+                    created = false;
+                }
+                
+                if (shmid == -1) {
+                    return -1;
+                }
+                
+                return 0;
+            }
+
+        shared.h
+            #ifndef SHARED_H
+            #define SHARED_H
+            
+            #include <stdint.h>
+            #include <stdbool.h>
+            #include <semaphore.h>
+            
+            // Constants
+            #define SLOT_COUNT 13
+            #define SLOT_EMPTY UINT64_MAX
+            #define SHARED_FILE_PATH "/tmp/prime_factor"
+            #define SEM_SERVER_FNAME "/prime_factor_server"
+            #define SEM_CLIENT_FNAME "/prime_factor_client"
+            #define SEM_SLOT_EVENT_FNAME "/prime_factor_slot_event"
+            #define SEM_SLOT_EVENT_ACK_FNAME "/prime_factor_slot_event_ack"
+            
+            // Server flags
+            #define SF_FREE 0
+            #define SF_FACTOR_SENT 1
+            #define SF_PRIME 2
+            #define SF_ERROR 3
+            #define SF_QUERY_IN_PROGRESS 4  
+            #define SF_QUERY_COMPLETE 5  
+            
+            // Client flags
+            #define CF_FREE 0
+            #define CF_NUMBER_READY 1
+            
+            // Client status codes
+            #define CS_SERVER_BUSY -1
+            #define CS_SERVER_TESTING -2
+            #define CS_SERVER_CANT_TEST -3
+            #define CS_SERVER_TESTING_STARTED -4
+            
+            // Shared memory structure
+            struct Memory {
+                uint64_t slot[SLOT_COUNT];
+                int8_t serverflag[SLOT_COUNT];
+                double progress[SLOT_COUNT];
+                int64_t clientslot;
+                bool testmode;
+            };
+            
+            // External variables
+            extern int shmid;
+            extern bool created;
+            extern struct Memory* shmptr;
+            extern sem_t *sem_server;
+            extern sem_t *sem_client;
+            extern sem_t *sem_slot_event;
+            extern sem_t *sem_slot_event_ack;
+            
+            // Function declarations
+            void close_semaphores(void);
+            int init_semaphores(bool create);
+            int64_t clientslot(void);
+            void set_clientslot(int64_t value);
+            void set_serverflag(uint8_t slot_index, int8_t status);
+            bool serverflag(uint8_t slot_index, int8_t status);
+            void detach_from_shared_memory(void);
+            void free_shared_memory(void);
+            int init_shared_memory(void);
+            int attach_to_shared_memory(void);
+            int get_shared_memory(bool create);
+            
+            #endif // SHARED_H
+      </code>
+    </pre>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Sabin Huda. All rights reserved.</p>
+  </footer>
+</body>
+</html>
