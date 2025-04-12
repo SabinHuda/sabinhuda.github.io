@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sabin Huda - Cybersecurity Specialist & Software Engineer</title>
+  <style>
+    /* Add your CSS styles here */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0;
+    }
+    nav ul {
+      list-style-type: none;
+      padding: 0;
+      display: flex;
+    }
+    nav li {
+      margin-right: 20px;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+    }
+    main {
+      padding: 20px;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 20px;
+      overflow-x: auto;
+    }
+    footer {
+      background-color: #333;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sabin Huda</h1>
+  </header>
+
+  <main>
+    <h2>C Code Showcase</h2>
+
+    <pre>
+      <code>
+        game_client.c
+        // Implemented by SABIN HUDA, PhD, ICT
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+        #include <unistd.h>
+        #include <sys/socket.h>
+        #include <netinet/in.h>
+        #include <arpa/inet.h>
+        #include <netdb.h>
+        #include <errno.h>
+        #include <signal.h>
+        
+        #define BUFFER_SIZE 1024
+        
+        int sock = -1;
+        
+        void cleanup(void) {
+            if (sock != -1) {
+                close(sock);
+            }
+        }
+        
+        void sigint_handler(int sig) {
+            printf("\nCaught signal %d. Sending QUIT message and cleaning up...\n", sig);
+            if (sock != -1) {
+                send(sock, "QUIT", 4, 0);
+            }
+            cleanup();
+            exit(0);
+        }
+        
+        int main(int argc, char *argv[]) {
+            if (argc != 4) {
+                fprintf(stderr, "Usage: %s <Game_Type> <Server_Name> <Port>\n", argv[0]);
+                exit(EXIT_FAILURE);
+            }
+        
+            char *game_type = argv[1];
+            char *server_name = argv[2];
+            int port = atoi(argv[3]);
+        
+            if (strcmp(game_type, "numbers") != 0) {
+                fprintf(stderr, "Unsupported game type. Only 'numbers' is supported.\n");
+                exit(EXIT_FAILURE);
+            }
+        
+            struct addrinfo hints, *result, *rp;
+            char port_str[6];
+            snprintf(port_str, sizeof(port_str), "%d", port);
+        
+            // Register cleanup handlers
+            atexit(cleanup);
+            signal(SIGINT, sigint_handler);
+        
+            // Initialize hints
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family = AF_UNSPEC;    // Allow IPv4 or IPv6
+            hints.ai_socktype = SOCK_STREAM;
+            hints.ai_flags = 0;
+            hints.ai_protocol = 0;
+        
+            int s = getaddrinfo(server_name, port_str, &hints, &result);
+            if (s != 0) {
+                fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+                exit(EXIT_FAILURE);
+            }
+        
+            // Try each address until we successfully connect
+            for (rp = result; rp != NULL; rp = rp->ai_next) {
+                sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+                if (sock == -1)
+                    continue;
+        
+                if (connect(sock, rp->ai_addr, rp->ai_addrlen) != -1)
+                    break;  // Success
+        
+                close(sock);
+                sock = -1;
+            }
+        
+            freeaddrinfo(result);
+        
+            if (rp == NULL) {
+                fprintf(stderr, "Could not connect to server\n");
+                exit(EXIT_FAILURE);
+            }
+        
+            printf("Connected to server. Waiting for game to start...\n");
+        
+            char buffer[BUFFER_SIZE];
+            fd_set readfds;
+            struct timeval tv;
+        
+            while (1) {
+                FD_ZERO(&readfds);
+                FD_SET(sock, &readfds);
+                FD_SET(STDIN_FILENO, &readfds);  // Add stdin to fd set
+        
+                // Set timeout to 30 seconds
+                tv.tv_sec = 30;
+                tv.tv_usec = 0;
+        
+                int max_fd = (sock > STDIN_FILENO) ? sock : STDIN_FILENO;
+                int activity = select(max_fd + 1, &readfds, NULL, NULL, &tv);
+        
+                if (activity < 0 && errno != EINTR) {
+                    perror("select error");
+                    break;
+                }
+        
+                if (activity == 0) {
+                    printf("Timeout: No response from server or user input\n");
+                    break;
+                }
+        
+                // Check for server messages
+                if (FD_ISSET(sock, &readfds)) {
+                    memset(buffer, 0, BUFFER_SIZE);
+                    int valread = read(sock, buffer, BUFFER_SIZE - 1);
+                    
+                    if (valread <= 0) {
+                        if (valread < 0) {
+                            perror("read error");
+                        } else {
+                            printf("Server disconnected\n");
+                        }
+                        break;
+                    }
+        
+                    buffer[valread] = '\0';
+                    if (strncmp(buffer, "TEXT ", 5) == 0) {
+                        printf("%s\n", buffer + 5);
+                    } else if (strcmp(buffer, "GO") == 0) {
+                        printf("Your turn. Enter a number (1-9): ");
+                        fflush(stdout);
+                    } else if (strcmp(buffer, "END") == 0) {
+                        printf("Game over\n");
+                        break;
+                    } else if (strcmp(buffer, "ERROR") == 0) {
+                        printf("Protocol error. Disconnecting.\n");
+                        break;
+                    }
+                }
+        
+                // Check for user input
+                if (FD_ISSET(STDIN_FILENO, &readfds)) {
+                    if (fgets(buffer, BUFFER_SIZE, stdin) != NULL) {
+                        // Remove newline
+                        buffer[strcspn(buffer, "\n")] = 0;
+        
+                        // Check for quit command
+                        if (strcasecmp(buffer, "quit") == 0) {
+                            send(sock, "QUIT", 4, 0);
+                            printf("Quitting game...\n");
+                            break;
+                        }
+        
+                        // Format and send move
+                        char message[BUFFER_SIZE];
+                        snprintf(message, BUFFER_SIZE, "MOVE %s", buffer);
+                        if (send(sock, message, strlen(message), 0) < 0) {
+                            perror("send failed");
+                            break;
+                        }
+                    }
+                }
+            }
+        
+            return 0;
+        }
+        
+        game_server.c
+        // Implemented by SABIN HUDA, PhD, ICT
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+        #include <unistd.h>
+        #include <arpa/inet.h>
+        #include <sys/socket.h>
+        #include <sys/time.h>
+        #include <errno.h>
+        #include <signal.h>
+        #include <time.h>
+        
+        #define MAX_CLIENTS 10
+        #define BUFFER_SIZE 1024
+        #define MAX_MOVES 100
+        #define TURN_TIMEOUT 30
+        
+        typedef struct {
+            int socket;
+            struct sockaddr_in address;
+            socklen_t address_len;
+            char name[20];
+            int error_count;
+        } client_t;
+        
+        typedef struct {
+            int player;
+            int move;
+        } move_t;
+        
+        typedef struct {
+            int total;
+            int current_player;
+            int num_players;
+            client_t clients[MAX_CLIENTS];
+            move_t move_history[MAX_MOVES];
+            int history_count;
+            time_t turn_start_time;
+        } game_state_t;
+        
+        int server_fd;
+        game_state_t game;
+        
+        void handle_client_message(int client_index, char *message);
+        void broadcast_message(char *message, int sender_index);
+        void send_message(int socket, char *message);
+        void start_game();
+        void next_turn();
+        void sigint_handler(int sig);
+        void check_timeout();
+        
+        int main(int argc, char *argv[]) {
+            if (argc != 4) {
+                fprintf(stderr, "Usage: %s <Port> <Game_Type> <Num_Players>\n", argv[0]);
+                exit(EXIT_FAILURE);
+            }
+        
+            int port = atoi(argv[1]);
+            char *game_type = argv[2];
+            int num_players = atoi(argv[3]);
+        
+            if (strcmp(game_type, "numbers") != 0) {
+                fprintf(stderr, "Unsupported game type. Only 'numbers' is supported.\n");
+                exit(EXIT_FAILURE);
+            }
+        
+            struct sockaddr_in address;
+            int opt = 1;
+            int addrlen = sizeof(address);
+            fd_set readfds;
+        
+            game.total = 25 + (5 * num_players);
+            game.current_player = -1;
+            game.num_players = 0;
+            game.history_count = 0;
+        
+            signal(SIGINT, sigint_handler);
+        
+            if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+                perror("socket failed");
+                exit(EXIT_FAILURE);
+            }
+        
+            if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+                perror("setsockopt");
+                exit(EXIT_FAILURE);
+            }
+        
+            address.sin_family = AF_INET;
+            address.sin_addr.s_addr = INADDR_ANY;
+            address.sin_port = htons(port);
+        
+            if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+                perror("bind failed");
+                exit(EXIT_FAILURE);
+            }
+        
+            if (listen(server_fd, 3) < 0) {
+                perror("listen");
+                exit(EXIT_FAILURE);
+            }
+        
+            printf("Server initialized. Waiting for %d players...\n", num_players);
+        
+            while (1) {
+                FD_ZERO(&readfds);
+                FD_SET(server_fd, &readfds);
+                int max_sd = server_fd;
+        
+                for (int i = 0; i < game.num_players; i++) {
+                    int sd = game.clients[i].socket;
+                    if (sd > 0) {
+                        FD_SET(sd, &readfds);
+                    }
+                    if (sd > max_sd) {
+                        max_sd = sd;
+                    }
+                }
+        
+                struct timeval tv = {0, 100000}; // 100ms timeout for select
+                int activity = select(max_sd + 1, &readfds, NULL, NULL, &tv);
+        
+                if ((activity < 0) && (errno != EINTR)) {
+                    perror("select error");
+                    continue;
+                }
+        
+                if (FD_ISSET(server_fd, &readfds)) {
+                    int new_socket;
+                    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+                        perror("accept");
+                        continue;
+                    }
+        
+                    printf("New connection, socket fd is %d, ip is: %s, port: %d\n",
+                           new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+        
+                    if (game.num_players < num_players) {
+                        game.clients[game.num_players].socket = new_socket;
+                        game.clients[game.num_players].address = address;
+                        game.clients[game.num_players].address_len = addrlen;
+                        game.clients[game.num_players].error_count = 0;
+                        sprintf(game.clients[game.num_players].name, "Player %d", game.num_players + 1);
+        
+                        char welcome_message[BUFFER_SIZE];
+                        sprintf(welcome_message, "TEXT Welcome %s! Waiting for %d more player(s)...",
+                                game.clients[game.num_players].name, num_players - game.num_players - 1);
+                        send_message(new_socket, welcome_message);
+        
+                        game.num_players++;
+        
+                        if (game.num_players == num_players) {
+                            start_game();
+                        }
+                    } else {
+                        send_message(new_socket, "TEXT Game is full. Try again later.");
+                        close(new_socket);
+                    }
+                }
+        
+                for (int i = 0; i < game.num_players; i++) {
+                    int sd = game.clients[i].socket;
+        
+                    if (FD_ISSET(sd, &readfds)) {
+                        char buffer[BUFFER_SIZE];
+                        int valread = read(sd, buffer, BUFFER_SIZE - 1);
+        
+                        if (valread <= 0) {
+                            getpeername(sd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+                            printf("Host disconnected, ip %s, port %d\n",
+                                   inet_ntoa(address.sin_addr), ntohs(address.sin_port));
+                            close(sd);
+                            game.clients[i].socket = 0;
+                            if (i == game.current_player) {
+                                next_turn();
+                            }
+                        } else {
+                            buffer[valread] = '\0';
+                            handle_client_message(i, buffer);
+                        }
+                    }
+                }
+        
+                check_timeout();
+            }
+        
+            return 0;
+        }
+        
+        void handle_client_message(int client_index, char *message) {
+            if (strncmp(message, "MOVE ", 5) == 0) {
+                if (client_index == game.current_player) {
+                    int move = atoi(message + 5);
+                    if (move >= 1 && move <= 9) {
+                        game.total -= move;
+                        game.move_history[game.history_count].player = client_index;
+                        game.move_history[game.history_count].move = move;
+                        game.history_count++;
+        
+                        char update[BUFFER_SIZE];
+                        sprintf(update, "TEXT %s subtracted %d. New total: %d",
+                                game.clients[client_index].name, move, game.total);
+                        broadcast_message(update, -1);
+        
+                        if (game.total <= 0) {
+                            char win_message[BUFFER_SIZE];
+                            sprintf(win_message, "TEXT %s wins!", game.clients[client_index].name);
+                            broadcast_message(win_message, -1);
+                            broadcast_message("END", -1);
+                            exit(EXIT_SUCCESS);
+                        } else {
+                            next_turn();
+                        }
+                    } else {
+                        game.clients[client_index].error_count++;
+                        char error_message[BUFFER_SIZE];
+                        sprintf(error_message, "TEXT ERROR Invalid move. Please enter a number between 1 and 9. (%d/5 errors)",
+                                game.clients[client_index].error_count);
+                        send_message(game.clients[client_index].socket, error_message);
+                        
+                        if (game.clients[client_index].error_count >= 5) {
+                            sprintf(error_message, "TEXT ERROR Too many invalid moves. Disconnecting.");
+                            send_message(game.clients[client_index].socket, error_message);
+                            close(game.clients[client_index].socket);
+                            game.clients[client_index].socket = 0;
+                            next_turn();
+                        }
+                    }
+                } else {
+                    send_message(game.clients[client_index].socket, "TEXT ERROR It's not your turn.");
+                }
+            } else if (strcmp(message, "QUIT") == 0) {
+                char quit_message[BUFFER_SIZE];
+                sprintf(quit_message, "TEXT %s has quit the game.", game.clients[client_index].name);
+                broadcast_message(quit_message, -1);
+                close(game.clients[client_index].socket);
+                game.clients[client_index].socket = 0;
+                if (client_index == game.current_player) {
+                    next_turn();
+                }
+            } else if (strcmp(message, "HISTORY") == 0) {
+                char history[BUFFER_SIZE * 2];
+                sprintf(history, "TEXT Game History:\n");
+                for (int i = 0; i < game.history_count; i++) {
+                    sprintf(history + strlen(history), "Player %d: %d\n", 
+                            game.move_history[i].player + 1, 
+                            game.move_history[i].move);
+                }
+                send_message(game.clients[client_index].socket, history);
+            } else {
+                send_message(game.clients[client_index].socket, "ERROR");
+            }
+        }
+        
+        void broadcast_message(char *message, int sender_index) {
+            for (int i = 0; i < game.num_players; i++) {
+                if (game.clients[i].socket != 0 && i != sender_index) {
+                    send_message(game.clients[i].socket, message);
+                }
+            }
+        }
+        
+        void send_message(int socket, char *message) {
+            send(socket, message, strlen(message), 0);
+        }
+        
+        void start_game() {
+            char start_message[BUFFER_SIZE];
+            sprintf(start_message, "TEXT Game starting! Initial total: %d", game.total);
+            broadcast_message(start_message, -1);
+            next_turn();
+        }
+        
+        void next_turn() {
+            do {
+                game.current_player = (game.current_player + 1) % game.num_players;
+            } while (game.clients[game.current_player].socket == 0);
+        
+            char turn_message[BUFFER_SIZE];
+            sprintf(turn_message, "TEXT It's %s's turn. Current total: %d",
+                    game.clients[game.current_player].name, game.total);
+            broadcast_message(turn_message, -1);
+            send_message(game.clients[game.current_player].socket, "GO");
+            
+            game.turn_start_time = time(NULL);
+        }
+        
+        void sigint_handler(int sig) {
+            printf("Caught signal %d. Closing server socket and exiting...\n", sig);
+            for (int i = 0; i < game.num_players; i++) {
+                if (game.clients[i].socket != 0) {
+                    close(game.clients[i].socket);
+                }
+            }
+            close(server_fd);
+            exit(0);
+        }
+        
+        void check_timeout() {
+            if (game.current_player >= 0) {
+                time_t now = time(NULL);
+                if (now - game.turn_start_time >= TURN_TIMEOUT) {
+                    char timeout_msg[BUFFER_SIZE];
+                    sprintf(timeout_msg, "TEXT %s timed out.", game.clients[game.current_player].name);
+                    broadcast_message(timeout_msg, -1);
+                    next_turn();
+                }
+            }
+        }        
+      </code>
+    </pre>
+  </main>
+
+  <footer>
+    <p>&copy; 2025 Sabin Huda. All rights reserved.</p>
+  </footer>
+</body>
+</html>
